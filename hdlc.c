@@ -80,6 +80,7 @@ static inline int check_crc_ccitt(const unsigned char *buf, int cnt)
 /* ---------------------------------------------------------------------- */
 
 int aprs_mode = 0;
+int aprs_crc = 1;
 
 static void aprs_print_ax25call(unsigned char *call, int is_repeater)
 {
@@ -144,10 +145,10 @@ static void ax25_disp_packet(struct demod_state *s, unsigned char *bp, unsigned 
 
         if (!bp || len < 10) 
 		return;
-#if 1
-	if (!check_crc_ccitt(bp, len))
+
+	if (!check_crc_ccitt(bp, len) & aprs_crc)
 		return;
-#endif
+
 	len -= 2;
         if (bp[1] & 1) {
                 /*

@@ -88,6 +88,7 @@ static bool dont_flush = false;
 
 extern int pocsag_mode;
 extern int aprs_mode;
+extern int aprs_crc;
 extern int cw_dit_length;
 extern int cw_gap_length;
 extern int cw_threshold;
@@ -536,6 +537,7 @@ static const char usage_str[] = "\n"
         "  -f <mode>  : forces POCSAG data decoding as <mode> (<mode> can be 'numeric', 'alpha' and 'skyper')\n"
         "  -h         : this help\n"
         "  -A         : APRS mode (TNC2 text output)\n"
+        "  -Y         : Ignore CRC on AX.25 (use with -A)\n"
         "  -m         : mute SoX warnings\n"
         "  -r         : call SoX in repeatable mode (e.g. fixed random seed for dithering)\n"
         "  -n         : don't flush stdout, increases performance\n"
@@ -563,7 +565,7 @@ int main(int argc, char *argv[])
     for (i = 0; (unsigned int) i < NUMDEMOD; i++)
         fprintf(stderr, " %s", dem[i]->name);
     fprintf(stderr, "\n");
-    while ((c = getopt(argc, argv, "t:a:s:v:f:g:d:o:cqhAmrxyn")) != EOF) {
+    while ((c = getopt(argc, argv, "t:a:s:v:f:g:d:o:cqhAYmrxyn")) != EOF) {
         switch (c) {
         case 'h':
         case '?':
@@ -584,6 +586,11 @@ int main(int argc, char *argv[])
                     break;
                 }
             break;
+
+        case 'Y':
+            aprs_crc = 0;
+            fprintf(stdout, "Ignoring CRC on AX.25\n");
+						break;
             
         case 'v':
             verbose_level = strtoul(optarg, 0, 0);
