@@ -6,8 +6,8 @@
  *
  *      Added eas parts - A. Maitland Bottoms 27 June 2000
  *
- *      Copyright (C) 2012/2013
- *          Elias Oenal    (EliasOenal@gmail.com)
+ *      Copyright (C) 2012-2014
+ *          Elias Oenal    (multimon-ng@eliasoenal.com)
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -74,20 +74,18 @@ struct l2_state_clipfsk {
     uint32_t rxbitbuf;
 };
 
-struct l2_pocsag_rx {
-    unsigned char rx_sync;      // sync status
-    unsigned char rx_word;      // word counter
-    unsigned char rx_bit;       // bit counter, counts 32bits
-    char func;                  // POCSAG function (eg 3 for text)
-    uint32_t adr;               // POCSAG address
-    unsigned char buffer[512];
-    uint32_t numnibbles;
-    char message_corrupt;
+struct l2_state_fmsfsk {
+    unsigned char rxbuf[512];
+    unsigned char *rxptr;
+    uint32_t rxstate; // used to track the SYNC pattern
+    uint64_t rxbitstream; // holds RXed bits
+    uint32_t rxbitcount; // counts RXed bits
 };
 
 struct demod_state {
     const struct demod_param *dem_par;
     union {
+        struct l2_state_fmsfsk fmsfsk;
         struct l2_state_clipfsk clipfsk;
         struct l2_state_uart {
             unsigned char rxbuf[8192];
@@ -105,11 +103,6 @@ struct demod_state {
             uint32_t rxbitbuf;
         } hdlc;
         
-        struct l2_state_pocsag {
-            uint32_t rx_data;
-            struct l2_pocsag_rx rx[2];
-        } pocsag;
-        
         struct l2_state_eas {
             char last_message[269];
             char msg_buf[4][269];
@@ -119,6 +112,25 @@ struct demod_state {
             uint32_t msgno;
             uint32_t state;
         } eas;
+
+        struct l2_state_pocsag {
+            uint32_t rx_data;
+            unsigned char state;        // state machine
+            unsigned char rx_bit;       // bit counter, counts 32bits
+            unsigned char rx_word;
+            int32_t function;          // POCSAG function
+            int32_t address;           // POCSAG address
+            unsigned char buffer[512];
+            uint32_t numnibbles;
+            uint32_t pocsag_total_error_count;
+            uint32_t pocsag_corrected_error_count;
+            uint32_t pocsag_corrected_1bit_error_count;
+            uint32_t pocsag_corrected_2bit_error_count;
+            uint32_t pocsag_uncorrected_error_count;
+            uint32_t pocsag_total_bits_received;
+            uint32_t pocsag_bits_processed_while_synced;
+            uint32_t pocsag_bits_processed_while_not_synced;
+        } pocsag;
     } l2;
     union {
         struct l1_state_poc5 {
@@ -159,6 +171,12 @@ struct demod_state {
             unsigned int sphase;
             uint32_t subsamp;
         } clipfsk;
+        
+        struct l1_state_fmsfsk {
+            unsigned int dcd_shreg;
+            unsigned int sphase;
+            uint32_t subsamp;
+        } fmsfsk;
         
         struct l1_state_afsk12 {
             uint32_t dcd_shreg;
@@ -201,7 +219,7 @@ struct demod_state {
             int lastch;
             int timeout;
         } selcall;
-        
+
         struct l1_state_morse {
             uint64_t current_sequence;
             int_fast16_t threshold_ctr;
@@ -261,6 +279,7 @@ extern const struct demod_param demod_eas;
 
 extern const struct demod_param demod_ufsk1200;
 extern const struct demod_param demod_clipfsk;
+extern const struct demod_param demod_fmsfsk;
 
 extern const struct demod_param demod_afsk1200;
 extern const struct demod_param demod_afsk2400;
@@ -295,7 +314,7 @@ extern const struct demod_param demod_scope;
 #define SCOPE_DEMOD
 #endif
 
-#define ALL_DEMOD &demod_poc5, &demod_poc12, &demod_poc24, &demod_eas, &demod_ufsk1200, &demod_clipfsk, \
+#define ALL_DEMOD &demod_poc5, &demod_poc12, &demod_poc24, &demod_eas, &demod_ufsk1200, &demod_clipfsk, &demod_fmsfsk, \
     &demod_afsk1200, &demod_afsk2400, &demod_afsk2400_2, &demod_afsk2400_3, &demod_hapn4800, \
     &demod_fsk9600, &demod_dtmf, &demod_zvei1, &demod_zvei2, &demod_zvei3, &demod_dzvei, \
     &demod_pzvei, &demod_eea, &demod_eia, &demod_ccir, &demod_morse, &demod_dumpcsv SCOPE_DEMOD
@@ -317,6 +336,9 @@ void uart_init(struct demod_state *s);
 void uart_rxbit(struct demod_state *s, int bit);
 void clip_init(struct demod_state *s);
 void clip_rxbit(struct demod_state *s, int bit);
+
+void fms_init(struct demod_state *s);
+void fms_rxbit(struct demod_state *s, int bit);
 
 void pocsag_init(struct demod_state *s);
 void pocsag_rxbit(struct demod_state *s, int32_t bit);
